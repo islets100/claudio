@@ -1,0 +1,122 @@
+/* Claudio PWA — 完整样式表 | 点阵复古未来主义 */
+
+/* === 主题变量 === */
+.theme-dark {
+  --bg-deep: #0d0d0d; --bg-panel: #0f0f13; --dot-color: #1a1a1a;
+  --card-bg: #ffffff; --text-primary: #fff; --text-dim: #888;
+  --text-card: #111; --text-card-dim: #666; --accent-green: #00ff88;
+  --highlight-mint: #d1fadf; --played-color: #111; --unplayed-color: #e5e5e5;
+  --transcript-bg: #f8f8f8; --input-bg: #1a1a1a;
+  --chat-bg: rgba(255,255,255,0.06); --chat-border: rgba(255,255,255,0.1);
+  --nav-bg: rgba(0,0,0,0.8); --shell-border: #161616;
+}
+.theme-light {
+  --bg-deep: #f0f0f7; --bg-panel: #f0f0f7; --dot-color: #d8d8e8;
+  --card-bg: #ffffff; --text-primary: #1a1a2e; --text-dim: #999;
+  --text-card: #111; --text-card-dim: #888; --accent-green: #00cc66;
+  --highlight-mint: #d1fadf; --played-color: #111; --unplayed-color: #e0e0e0;
+  --transcript-bg: #f8f8f8; --input-bg: #f5f5fa;
+  --chat-bg: rgba(0,0,0,0.04); --chat-border: rgba(0,0,0,0.08);
+  --nav-bg: rgba(240,240,247,0.9); --shell-border: #e0e0e8;
+}
+
+/* === 基础重置 === */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+body {
+  background:var(--bg-deep);
+  background-image:radial-gradient(var(--dot-color) 1px,transparent 1px);
+  background-size:25px 25px;
+  color:var(--text-primary);
+  font-family:'Noto Sans SC',sans-serif;
+  display:flex;justify-content:center;align-items:center;
+  min-height:100vh;
+  transition:background .5s cubic-bezier(.4,0,.2,1),color .5s;
+}
+
+.phone-shell {
+  width:100%;max-width:420px;min-height:100vh;
+  background:#000;position:relative;
+  display:flex;flex-direction:column;overflow:hidden;
+  box-shadow:0 0 80px rgba(0,0,0,.5);
+}
+@media(min-width:450px){
+  .phone-shell{min-height:auto;height:92vh;max-height:900px;border-radius:40px;border:8px solid var(--shell-border)}
+  body{padding:20px}
+}
+
+/* === Header === */
+.header-area{padding:44px 24px 8px;display:flex;justify-content:space-between;align-items:flex-start;z-index:10}
+.logo .name{font-family:'JetBrains Mono',monospace;font-size:22px;letter-spacing:2px;color:#fff;text-shadow:0 0 10px rgba(255,255,255,.2)}
+.status-on-air{display:flex;align-items:center;gap:6px;color:var(--accent-green);font-size:9px;font-family:'JetBrains Mono',monospace;margin-top:4px}
+.pulse-dot{width:5px;height:5px;background:var(--accent-green);border-radius:50%;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.header-right{display:flex;align-items:center;gap:10px}
+.dot-clock{font-family:'JetBrains Mono',monospace;font-size:13px;color:#aaa}
+.weather-badge{font-size:11px;color:#888}
+
+/* === 顶部破碎波形 === */
+.top-jagged-viz{height:80px;display:flex;align-items:flex-end;justify-content:center;gap:2px;padding:0 24px 10px}
+.j-bar{width:2px;background:#fff;opacity:.5;transition:height .1s linear}
+
+/* === 视图切换 === */
+.main-content{flex:1;display:flex;flex-direction:column;z-index:2}
+.view{display:none;flex:1;flex-direction:column}
+.view.active{display:flex;animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* === Player 卡片 === */
+.main-white-card{background:var(--card-bg);border-radius:35px 35px 0 0;flex:1;padding:28px 24px 16px;display:flex;flex-direction:column;gap:14px;color:var(--text-card)}
+.song-title-group h1{font-size:22px;font-weight:800;line-height:1.2}
+.song-title-group p{color:#aaa;font-size:13px;margin-top:2px}
+
+.lyrics-section{background:var(--transcript-bg);border-radius:20px;padding:16px;flex:1;min-height:100px;overflow-y:auto;font-size:13px;line-height:1.7;color:#aaa}
+.lyrics-placeholder{color:#ccc;text-align:center;padding:30px 0}
+
+/* 镜像波形进度条 */
+.mid-progress-component{display:flex;align-items:center;gap:10px;height:56px;padding:0 4px}
+.timestamp{font-family:'JetBrains Mono',monospace;font-size:11px;color:#333;min-width:36px;text-align:center}
+.waveform-container{flex:1;height:40px;display:flex;align-items:center;gap:1.5px;cursor:pointer;overflow:hidden}
+.wave-chunk{width:2.2px;border-radius:1px;background:var(--unplayed-color);transition:background .1s,height .15s ease-out;flex-shrink:0}
+.wave-chunk.played{background:var(--played-color)}
+
+.btn-play-pause{width:40px;height:40px;background:#111;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;flex-shrink:0;transition:transform .1s}
+.btn-play-pause:active{transform:scale(.95)}
+.play-icon{width:0;height:0;border-left:14px solid #fff;border-top:9px solid transparent;border-bottom:9px solid transparent;margin-left:3px}
+.play-icon.pause{border:none;width:4px;height:14px;box-shadow:6px 0 0 #fff,-6px 0 0 #fff;margin-left:0}
+
+/* === Chat 面板 === */
+.chat-panel{background:var(--card-bg);border-radius:35px 35px 0 0;flex:1;padding:20px 16px 12px;display:flex;flex-direction:column;color:var(--text-card)}
+.chat-header{font-family:'JetBrains Mono',monospace;font-size:13px;color:#888;padding-bottom:10px;border-bottom:1px solid #f0f0f0;margin-bottom:10px}
+.chat-stream{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.chat-empty{color:#ccc;text-align:center;padding:30px 0;font-size:13px}
+
+.chat-msg{display:flex;gap:8px;animation:msgIn .4s cubic-bezier(.34,1.56,.64,1);max-width:88%}
+@keyframes msgIn{from{transform:translateY(10px) scale(.95);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+.chat-msg.user{align-self:flex-end;flex-direction:row-reverse}
+.chat-msg.assistant{align-self:flex-start}
+.chat-avatar{width:26px;height:26px;border-radius:50%;background:#222;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;border:1px solid #333}
+.chat-bubble{background:var(--chat-bg);border:1px solid var(--chat-border);border-radius:14px;padding:10px 14px;font-size:13px;line-height:1.5;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.chat-msg.user .chat-bubble{background:#111;color:#fff;border-color:#333}
+
+.chat-input-area{display:flex;gap:8px;padding-top:10px;margin-top:8px;border-top:1px solid #f0f0f0}
+.chat-input{flex:1;border:none;background:var(--input-bg);border-radius:20px;padding:10px 16px;font-size:13px;font-family:inherit;outline:none;color:var(--text-card)}
+.chat-send-btn{width:36px;height:36px;border-radius:50%;background:#111;border:none;color:#fff;font-size:16px;cursor:pointer;flex-shrink:0}
+
+/* === Settings 面板 === */
+.settings-panel{background:var(--card-bg);border-radius:35px 35px 0 0;flex:1;padding:24px 20px;display:flex;flex-direction:column;gap:20px;color:var(--text-card)}
+.settings-header{font-family:'JetBrains Mono',monospace;font-size:16px;letter-spacing:2px}
+.settings-group{display:flex;flex-direction:column;gap:10px}
+.setting-label{font-size:12px;color:var(--text-card-dim);text-transform:uppercase;letter-spacing:1px}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0;font-size:14px;cursor:pointer}
+.setting-row select,.setting-row input[type=checkbox]{cursor:pointer}
+.settings-about{font-size:12px;color:#aaa;line-height:1.6}
+
+/* === 底部标签栏 === */
+.tab-bar{display:flex;justify-content:space-around;padding:10px 0 28px;background:var(--nav-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);z-index:10}
+.tab-btn{background:none;border:none;font-size:20px;color:#888;cursor:pointer;padding:8px 24px;transition:color .3s,transform .2s}
+.tab-btn.active{color:var(--text-card);font-weight:700}
+.tab-btn:active{transform:scale(.9)}
+
+/* === 工具类 === */
+.hidden{display:none!important}

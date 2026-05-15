@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Claudio - High Fidelity Integrated UI</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@300;400;700&display=swap');
+
+        :root {
+            --bg-deep: #0a0a0a;
+            --accent-green: #00ff88;
+            --highlight-mint: #d1fadf;
+            --card-white: #ffffff;
+            --transcript-bg: #f8f8f8;
+            /* 进度条专用色值 */
+            --played-color: #111111;
+            --unplayed-color: #e5e5e5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            background-image: radial-gradient(#1a1a1a 1px, transparent 1px);
+            background-size: 25px 25px;
+            color: white;
+            font-family: 'Noto Sans SC', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .phone-shell {
+            width: 375px;
+            height: 780px;
+            background: #000;
+            border-radius: 45px;
+            border: 10px solid #161616;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 50px 100px rgba(0, 0, 0, 0.9);
+        }
+
+        /* 顶部安全区与 Header */
+        .header-area {
+            padding: 40px 24px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .logo .name {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 24px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .status-on-air {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--accent-green);
+            font-size: 10px;
+            font-family: 'JetBrains Mono';
+            margin-top: 5px;
+        }
+
+        .pulse-dot {
+            width: 5px;
+            height: 5px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        /* 顶部：高度参差的破碎感波形 */
+        .top-jagged-viz {
+            height: 100px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 2px;
+            padding-bottom: 10px;
+            margin-top: 5px;
+        }
+
+        .j-bar {
+            width: 2.2px;
+            background: #fff;
+            transition: height 0.1s linear;
+        }
+
+        /* 白色主卡片 */
+        .main-white-card {
+            background: var(--card-white);
+            flex: 1;
+            border-radius: 35px 35px 0 0;
+            padding: 30px 24px 15px;
+            color: #000;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 2;
+        }
+
+        .song-title-group h1 {
+            font-size: 24px;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .song-title-group p {
+            color: #aaa;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        /* 歌词区域 (占位) */
+        .lyrics-section {
+            background: var(--transcript-bg);
+            border-radius: 20px;
+            padding: 18px;
+            flex: 1;
+            overflow: hidden;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #ccc;
+        }
+
+        .word-node.active {
+            background: var(--highlight-mint);
+            color: #000;
+            border-radius: 3px;
+            padding: 0 2px;
+        }
+
+        /* 核心移植：镜像进度条组件 (位于中部) */
+        .mid-progress-component {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            height: 60px;
+            padding: 0 5px;
+        }
+
+        .timestamp {
+            font-family: 'JetBrains Mono';
+            font-size: 12px;
+            color: #333;
+            min-width: 35px;
+        }
+
+        .waveform-container {
+            flex: 1;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            /* 镜像对称的关键 */
+            gap: 1.5px;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .wave-chunk {
+            width: 2.2px;
+            border-radius: 1px;
+            background: var(--unplayed-color);
+            transition: background 0.1s, height 0.2s ease-out;
+            flex-shrink: 0;
+        }
+
+        .wave-chunk.played {
+            background: var(--played-color);
+        }
+
+        .btn-play-pause {
+            width: 36px;
+            height: 36px;
+            background: #111;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .pause-icon {
+            display: flex;
+            gap: 3px;
+        }
+
+        .pause-icon div {
+            width: 3px;
+            height: 12px;
+            background: white;
+        }
+
+        /* 底部操作 */
+        .bottom-nav {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0 20px;
+            border-top: 1px solid #f0f0f0;
+            font-size: 18px;
+            color: #eee;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="phone-shell">
+        <div class="header-area">
+            <div class="logo">
+                <div class="name">Claudio</div>
+                <div class="status-on-air">
+                    <div class="pulse-dot"></div>
+                    <span>ON AIR • DJ MOD</span>
+                </div>
+            </div>
+            <div style="font-family: 'JetBrains Mono'; color: #444; font-size: 12px;">0:03</div>
+        </div>
+
+        <div class="top-jagged-viz" id="top-viz"></div>
+
+        <div class="main-white-card">
+            <div class="song-title-group">
+                <h1>Monday Night<br>Exhale</h1>
+                <p>If — Bread</p>
+            </div>
+
+            <div class="lyrics-section" id="lyrics-box"></div>
+
+            <div class="mid-progress-component">
+                <div class="timestamp" id="time-display">0:03</div>
+                <div class="waveform-container" id="waveform"></div>
+                <div class="btn-play-pause">
+                    <div class="pause-icon">
+                        <div></div>
+                        <div></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-nav">
+                <div>⏮</div>
+                <div style="color: #000;">LIST</div>
+                <div>⏭</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. 顶部：极高参差感的破碎波形
+        const topViz = document.getElementById('top-viz');
+        const topBars = [];
+        const tCount = 45;
+
+        for (let i = 0; i < tCount; i++) {
+            const b = document.createElement('div');
+            b.className = 'j-bar';
+            topViz.appendChild(b);
+            topBars.push(b);
+        }
+
+        let seed = 0;
+        function animateTop() {
+            seed += 0.04;
+            topBars.forEach((bar, i) => {
+                // 叠加高频噪声和随机抖动，制造“刺头”参差感
+                const base = Math.sin(i * 0.3 + seed) * 25;
+                const fragment = Math.sin(i * 0.9 - seed * 2) * 20;
+                const noise = Math.random() * 15;
+                const h = 45 + base + fragment + noise;
+                bar.style.height = Math.max(8, h) + 'px';
+            });
+            requestAnimationFrame(animateTop);
+        }
+        animateTop();
+
+        // 2. 中部：镜像进度条 (移植自你的代码)
+        const container = document.getElementById('waveform');
+        const barCount = 75;
+        const bars = [];
+        let progress = 0.35;
+
+        const sampleHeights = [];
+        for (let i = 0; i < barCount; i++) {
+            const h = Math.abs(Math.sin(i * 0.1) * 15 + Math.sin(i * 0.5) * 10 + (Math.random() * 8));
+            sampleHeights.push(Math.max(4, h));
+        }
+
+        function initWaveform() {
+            for (let i = 0; i < barCount; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'wave-chunk';
+                container.appendChild(bar);
+                bars.push(bar);
+            }
+        }
+
+        function renderWaveform() {
+            const time = Date.now() * 0.002;
+            bars.forEach((bar, i) => {
+                const baseH = sampleHeights[i];
+                const jitter = Math.sin(time + i * 0.2) * 2;
+                bar.style.height = (baseH + jitter) + 'px';
+
+                if (i / barCount < progress) {
+                    bar.classList.add('played');
+                } else {
+                    bar.classList.remove('played');
+                }
+            });
+            requestAnimationFrame(renderWaveform);
+        }
+
+        initWaveform();
+        renderWaveform();
+
+        container.onclick = (e) => {
+            const rect = container.getBoundingClientRect();
+            progress = (e.clientX - rect.left) / rect.width;
+            document.getElementById('time-display').innerText = `0:${Math.floor(progress * 60).toString().padStart(2, '0')}`;
+        };
+
+        // 3. 逐字点亮逻辑
+        const text = "This is Claudio. It's late on a Monday, and here's a song that moves with your breath.";
+        const box = document.getElementById('lyrics-box');
+        box.innerHTML = text.split(' ').map(w => `<span class="word-node">${w}</span>`).join(' ');
+
+        const nodes = document.querySelectorAll('.word-node');
+        let kIdx = 0;
+        function karaoke() {
+            nodes.forEach(n => n.classList.remove('active'));
+            if (kIdx < nodes.length) {
+                nodes[kIdx].classList.add('active');
+                kIdx++;
+                setTimeout(karaoke, 400);
+            } else {
+                kIdx = 0;
+                setTimeout(karaoke, 1000);
+            }
+        }
+        karaoke();
+
+    </script>
+
+</body>
+
+</html>

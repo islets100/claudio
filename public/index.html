@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0d0d0d">
+  <meta name="description" content="Claudio — AI 音乐电台 DJ">
+  <link rel="manifest" href="/manifest.json">
+  <title>Claudio</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="phone-shell" id="phoneShell">
+  <!-- 顶部 -->
+  <div class="header-area">
+    <div class="logo">
+      <div class="name">Claudio</div>
+      <div class="status-on-air">
+        <div class="pulse-dot"></div>
+        <span>ON AIR · DJ MODE</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="dot-clock" id="dotClock"></div>
+      <div class="weather-badge" id="weatherBadge">--°</div>
+    </div>
+  </div>
+
+  <!-- 顶部破碎波形 -->
+  <div class="top-jagged-viz" id="topViz"></div>
+
+  <!-- 主内容区：三视图切换 -->
+  <div class="main-content" id="mainContent">
+
+    <!-- 视图 1：Player -->
+    <div class="view view-player active" id="viewPlayer">
+      <div class="main-white-card">
+        <div class="song-title-group">
+          <h1 id="songTitle">Claudio</h1>
+          <p id="songArtist">准备好了吗？</p>
+        </div>
+
+        <div class="lyrics-section" id="lyricsBox">
+          <div class="lyrics-placeholder">点击下方按钮，让 Claudio 为你推荐音乐</div>
+        </div>
+
+        <!-- 镜像波形进度条 -->
+        <div class="mid-progress-component">
+          <div class="timestamp" id="timeDisplay">0:00</div>
+          <div class="waveform-container" id="waveform"></div>
+          <div class="btn-play-pause" id="btnPlayPause">
+            <div class="play-icon"></div>
+          </div>
+        </div>
+
+        <!-- 底部导航 -->
+        <div class="bottom-nav">
+          <button class="nav-btn" data-view="player">⏮</button>
+          <button class="nav-btn active" data-view="player">LIST</button>
+          <button class="nav-btn" data-view="player">⏭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 视图 2：Profile / Chat -->
+    <div class="view view-chat" id="viewChat">
+      <div class="chat-panel">
+        <div class="chat-header">对话记录</div>
+        <div class="chat-stream" id="chatStream">
+          <div class="chat-empty">和 Claudio 的对话会出现在这里</div>
+        </div>
+        <div class="chat-input-area">
+          <input type="text" class="chat-input" id="chatInput" placeholder="告诉 Claudio 你想听什么...">
+          <button class="chat-send-btn" id="chatSendBtn">↑</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 视图 3：Settings -->
+    <div class="view view-settings" id="viewSettings">
+      <div class="settings-panel">
+        <div class="settings-header">设置</div>
+        <div class="settings-group">
+          <label class="setting-row">
+            <span>主题</span>
+            <select id="themeSelect">
+              <option value="dark">深色</option>
+              <option value="light">浅色</option>
+            </select>
+          </label>
+          <label class="setting-row">
+            <span>TTS 播报</span>
+            <input type="checkbox" id="ttsToggle" checked>
+          </label>
+        </div>
+        <div class="settings-group">
+          <div class="setting-label">关于</div>
+          <p class="settings-about">Claudio v0.1 — 你的个人 AI 音乐 DJ</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部标签栏 -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="player">🎵</button>
+    <button class="tab-btn" data-tab="chat">💬</button>
+    <button class="tab-btn" data-tab="settings">⚙</button>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>

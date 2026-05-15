@@ -1,0 +1,409 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claudio 的施工图</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg-color: #0d0d0d;
+            --layer-title-color: #ffffff;
+            --text-main: #e0e0e0;
+            --text-dim: #999;
+            --accent-gold: #c5a059;
+            --border-blue: #2c4a7c;
+            --border-red: #5c3b31;
+            --border-green: #2b4d3f;
+            --card-bg: #161618;
+            --tag-bg: #1c1c1e;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Header Section */
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 28pt;
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 11pt;
+            margin-top: 8px;
+        }
+
+        .banner {
+            background-color: #2a241a;
+            border: 1px solid #4d4331;
+            border-radius: 8px;
+            padding: 10px 20px;
+            display: inline-block;
+            margin-top: 20px;
+            font-size: 11pt;
+            color: var(--accent-gold);
+            font-weight: 500;
+        }
+
+        /* Layer Structure */
+        .layer {
+            position: relative;
+            display: flex;
+            gap: 20px;
+            padding-left: 120px; /* Space for side labels */
+        }
+
+        .layer-label {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100px;
+            text-align: left;
+        }
+
+        .layer-label .num {
+            font-weight: bold;
+            display: block;
+            font-size: 12pt;
+        }
+
+        .layer-label .desc {
+            color: var(--text-dim);
+            font-size: 9pt;
+            display: block;
+            margin-top: 4px;
+        }
+
+        /* Cards Grid */
+        .grid {
+            display: grid;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .grid-2x2 { grid-template-columns: repeat(2, 1fr); }
+        .grid-3x2 { grid-template-columns: repeat(3, 1fr); }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid transparent;
+            position: relative;
+        }
+
+        .card-header {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8pt;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .card-title {
+            font-size: 11pt;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .card-desc {
+            font-size: 9pt;
+            color: var(--text-dim);
+            line-height: 1.4;
+            margin-bottom: 12px;
+        }
+
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .tag {
+            background-color: var(--tag-bg);
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 8pt;
+            color: #ccc;
+        }
+
+        /* Specific Colors */
+        .layer-1 .card { border-color: var(--border-blue); }
+        .layer-2 .card { border-color: var(--border-red); }
+        .layer-4 .card { border-color: var(--border-green); }
+
+        /* Layer 3 - Context Window */
+        .layer-3-box {
+            background-color: #1a1a1c;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            width: 100%;
+        }
+
+        .window-header {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9pt;
+            margin-bottom: 15px;
+            color: #888;
+        }
+
+        .window-header span { color: #fff; }
+
+        .fragments-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .fragment {
+            background-color: #222224;
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .fragment-num { color: var(--accent-gold); font-size: 9pt; margin-bottom: 4px; }
+        .fragment-title { font-size: 10pt; font-weight: 600; }
+        .fragment-content { font-size: 8pt; color: #777; font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+
+        .model-exec {
+            border-top: 1px dashed #444;
+            padding-top: 15px;
+        }
+
+        .model-line {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9pt;
+            margin-bottom: 5px;
+        }
+
+        .model-line span { color: var(--text-dim); }
+
+        /* Arrows */
+        .arrow-down {
+            text-align: center;
+            color: #444;
+            font-size: 20px;
+            margin: 10px 0;
+            padding-left: 120px;
+        }
+
+        /* Side dashed arrow simulation */
+        .dashed-connector {
+            position: absolute;
+            right: -20px;
+            top: 50px;
+            bottom: 50px;
+            border-right: 2px dashed #333;
+            width: 20px;
+        }
+
+        /* Layer 4 grid */
+        .layer-4 .grid-4 {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            gap: 20px;
+            width: 100%;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Claudio 的施工图</h1>
+        <div class="subtitle">(截图给 Claude code 看)</div>
+        <div class="banner">
+            个人 AI 电台 · Claudio · 读懂听歌习惯 → 规划声音 → 像 DJ 那样播报
+        </div>
+    </header>
+
+    <div class="layer layer-1">
+        <div class="layer-label">
+            <span class="num">第一层</span>
+            <span class="desc">外部上下文</span>
+        </div>
+        <div class="grid grid-2x2">
+            <div class="card">
+                <div class="card-header">USER/</div>
+                <div class="card-title">用户品味语料</div>
+                <div class="card-desc">让 Claudio 真正属于你的那几个文件</div>
+                <div class="tags">
+                    <span class="tag">taste.md</span>
+                    <span class="tag">routines.md</span>
+                    <span class="tag">playlists.json</span>
+                    <span class="tag">mood-rules.md</span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">BRAIN/</div>
+                <div class="card-title">Claude Code</div>
+                <div class="card-desc">子进程调用 · 用 Max 订阅无偿 API key</div>
+                <div class="tags">
+                    <span class="tag">claude -p</span>
+                    <span class="tag">--output json</span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">MUSIC</div>
+                <div class="card-title">NeteaseCloudMusicApi</div>
+                <div class="card-desc">歌曲检索 · 直链 · 歌词 · 推荐</div>
+                <div class="tags">
+                    <span class="tag">search</span>
+                    <span class="tag">song_url</span>
+                    <span class="tag">lyric</span>
+                    <span class="tag">recommend</span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-header">VOICE · I/O</div>
+                <div class="card-title">Fish · Feishu · Weather · UPnP</div>
+                <div class="card-desc">声音 · 日程 · 天气 · 客厅功放</div>
+                <div class="tags">
+                    <span class="tag">fish tts</span>
+                    <span class="tag">lark</span>
+                    <span class="tag">weather</span>
+                    <span class="tag">Naim</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="arrow-down">↓</div>
+
+    <div class="layer layer-2">
+        <div class="layer-label">
+            <span class="num">第二层</span>
+            <span class="desc">本地大脑</span>
+        </div>
+        <div class="grid grid-3x2">
+            <div class="card">
+                <div class="card-header">ROUTER.JS</div>
+                <div class="card-title">意图分流</div>
+                <div class="card-desc">简单指令直连 · 音乐走 ncm · 自然语言走 claude</div>
+            </div>
+            <div class="card">
+                <div class="card-header">CONTEXT.JS</div>
+                <div class="card-title">提示词组装</div>
+                <div class="card-desc">taste + routines + 环境 + 历史 → system prompt</div>
+            </div>
+            <div class="card">
+                <div class="card-header">CLAUDE.JS</div>
+                <div class="card-title">大脑适配器</div>
+                <div class="card-desc">spawn 子进程 · 解析 {say, play[], reason, segue}</div>
+            </div>
+            <div class="card">
+                <div class="card-header">SCHEDULER.JS</div>
+                <div class="card-title">节律调度</div>
+                <div class="card-desc">07:00 规划 · 09:00 早间 · 小时情绪检查 · 日历 hook</div>
+            </div>
+            <div class="card">
+                <div class="card-header">TTS.JS</div>
+                <div class="card-title">声音管线</div>
+                <div class="card-desc">Fish Audio → cache/tts/*.mp3 → /tts/&lt;hash&gt;.mp3</div>
+            </div>
+            <div class="card">
+                <div class="card-header">STATE.DB</div>
+                <div class="card-title">状态 · 记忆</div>
+                <div class="card-desc">messages · plays · plan · prefs · 跨重启持久</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="arrow-down">↓</div>
+
+    <div class="layer layer-3">
+        <div class="layer-label">
+            <span class="num">第三层</span>
+            <span class="desc">运行时聚合</span>
+        </div>
+        <div class="layer-3-box">
+            <div class="window-header">CONTEXT WINDOW 组装盒子 · 每次触发按这 <span>6 片</span>粘成 prompt</div>
+            <div class="fragments-grid">
+                <div class="fragment">
+                    <div class="fragment-num">① 系统提示词</div>
+                    <div class="fragment-title">prompts/dj-persona.md</div>
+                </div>
+                <div class="fragment">
+                    <div class="fragment-num">② 用户语料</div>
+                    <div class="fragment-title">user/*.md</div>
+                </div>
+                <div class="fragment">
+                    <div class="fragment-num">③ 环境注入</div>
+                    <div class="fragment-content">weather · calendar · now</div>
+                </div>
+                <div class="fragment">
+                    <div class="fragment-num">④ 已检索记忆</div>
+                    <div class="fragment-content">state.db · plays</div>
+                </div>
+                <div class="fragment">
+                    <div class="fragment-num">⑤ 用户输入 / 工具结果</div>
+                    <div class="fragment-content">/api/chat · ncm search</div>
+                </div>
+                <div class="fragment">
+                    <div class="fragment-num">⑥ 执行轨迹</div>
+                    <div class="fragment-content">scheduler · webhook</div>
+                </div>
+            </div>
+            <div class="model-exec">
+                <div class="model-line">MODEL · 前向过程 <span>compute(fragments) → {say, play[], reason, segue}</span></div>
+                <div class="model-line">→ ncm 解析 queue · tts 合成 say · WS 推 now-playing</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="arrow-down">↓</div>
+
+    <div class="layer layer-4">
+        <div class="layer-label">
+            <span class="num">第四层</span>
+            <span class="desc">交互表层</span>
+        </div>
+        <div class="grid-4">
+            <div class="card">
+                <div class="card-header">PWA/ · LOCALHOST:8080</div>
+                <div class="card-title">Progressive Web App</div>
+                <div class="card-desc">Player / Profile / Settings 三视图 · 单 &lt;audio&gt; · WS 流式聊天 · sw 缓存壳层 · prefetch 10s</div>
+            </div>
+            <div class="card">
+                <div class="card-header">HTTP CONTRACT</div>
+                <div class="card-title">PWA ↔ server 的 6 条线</div>
+                <div class="model-line" style="font-size: 8pt;">POST /api/chat &nbsp;&nbsp; GET /api/now</div>
+                <div class="model-line" style="font-size: 8pt;">GET /api/next &nbsp;&nbsp; GET /api/taste</div>
+                <div class="model-line" style="font-size: 8pt;">GET /api/plan/today &nbsp;&nbsp; WS /stream</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

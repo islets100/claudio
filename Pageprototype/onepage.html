@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root {
+            --bg-white: #ffffff;
+            --played-color: #111111;
+            --unplayed-color: #e5e5e5;
+            --btn-size: 40px;
+        }
+
+        body {
+            background: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        /* 模拟 PWA 底部容器 */
+        .claudio-bottom-bar {
+            background: var(--bg-white);
+            width: 360px;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-radius: 0 0 30px 30px;
+            /* 匹配卡片圆角 */
+        }
+
+        .timestamp {
+            font-size: 13px;
+            color: #333;
+            font-weight: 500;
+            min-width: 35px;
+        }
+
+        /* 核心：对称波形容器 */
+        .waveform-container {
+            flex: 1;
+            height: 40px;
+            /* 控制波形总高度 */
+            display: flex;
+            align-items: center;
+            /* 关键：垂直居中实现镜像 */
+            gap: 1.5px;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .wave-chunk {
+            width: 2.2px;
+            border-radius: 1px;
+            background: var(--unplayed-color);
+            transition: background 0.1s, height 0.2s ease-out;
+            /* 确保高度从中心向上下展开 */
+            flex-shrink: 0;
+        }
+
+        .wave-chunk.played {
+            background: var(--played-color);
+        }
+
+        /* 播放/暂停按钮 */
+        .btn-action {
+            width: var(--btn-size);
+            height: var(--btn-size);
+            background: #111;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .btn-action:active {
+            transform: scale(0.95);
+        }
+
+        .icon-pause {
+            display: flex;
+            gap: 3px;
+        }
+
+        .icon-pause div {
+            width: 3px;
+            height: 14px;
+            background: white;
+            border-radius: 1px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="claudio-bottom-bar">
+        <div class="timestamp">0:03</div>
+
+        <div class="waveform-container" id="waveform">
+        </div>
+
+        <div class="btn-action">
+            <div class="icon-pause">
+                <div></div>
+                <div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('waveform');
+        const barCount = 75; // 提高密度
+        const bars = [];
+        let progress = 0.35; // 模拟当前进度在 35%
+
+        // 1. 生成一组具有“音乐感”的随机高度采样（一次生成，保持静态形态）
+        const sampleHeights = [];
+        for (let i = 0; i < barCount; i++) {
+            // 使用叠加函数模拟真实的音频波峰，而不是纯随机
+            const h = Math.abs(Math.sin(i * 0.1) * 15 + Math.sin(i * 0.5) * 10 + (Math.random() * 8));
+            sampleHeights.push(Math.max(4, h));
+        }
+
+        // 2. 初始化 DOM
+        function init() {
+            for (let i = 0; i < barCount; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'wave-chunk';
+                container.appendChild(bar);
+                bars.push(bar);
+            }
+        }
+
+        // 3. 动态渲染逻辑
+        function render() {
+            const time = Date.now() * 0.002; // 用于轻微的活性动效
+
+            bars.forEach((bar, i) => {
+                // 实现镜像高度：CSS align-items: center 已经处理了垂直居中
+                // 我们只需给高度，它会自然上下展开
+                const baseH = sampleHeights[i];
+
+                // 加入极小的“活性”跳动，模拟音乐正在播放的感觉
+                const jitter = Math.sin(time + i * 0.2) * 2;
+                bar.style.height = (baseH + jitter) + 'px';
+
+                // 进度着色逻辑
+                if (i / barCount < progress) {
+                    bar.classList.add('played');
+                } else {
+                    bar.classList.remove('played');
+                }
+            });
+            requestAnimationFrame(render);
+        }
+
+        init();
+        render();
+
+        // 模拟点击交互
+        container.onclick = (e) => {
+            const rect = container.getBoundingClientRect();
+            progress = (e.clientX - rect.left) / rect.width;
+        };
+    </script>
+
+</body>
+
+</html>

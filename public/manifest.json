@@ -1,0 +1,10 @@
+{
+  "name": "Claudio",
+  "short_name": "Claudio",
+  "description": "AI Music DJ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0d0d",
+  "theme_color": "#0d0d0d",
+  "icons": []
+}

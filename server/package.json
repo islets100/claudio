@@ -1,0 +1,17 @@
+{
+  "name": "claudio",
+  "version": "0.1.0",
+  "description": "Claudio — 具备环境感知能力的情感化 AI 音乐助手 / 个人电台 DJ",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "express": "^5.2.1",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^3.3.2",
+    "ws": "^8.20.1"
+  }
+}

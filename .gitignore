@@ -1,0 +1,7 @@
+node_modules/
+server/config.json
+server/state.db
+cache/tts/*
+!cache/tts/.gitkeep
+.env
+*.log
