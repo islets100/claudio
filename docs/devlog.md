@@ -306,3 +306,167 @@ res.json({ ok: true, data: result })
 1. config.json 中的真实值（API keys 等）
 2. 网易云音乐 API 服务（本地部署 NeteaseCloudMusicApi）
 3. user/ 目录下的品味语料（taste.md / routines.md / mood-rules.md）
+
+---
+
+## 2026-05-22 — 真实环境集成 & 速度优化
+
+### 1. .env 配置系统
+
+**问题**：API Key 散落在 `.env` 和 `config.json` 两处，如何统一？
+
+**方案**：`.env` 作为唯一密钥来源（`.gitignore`，不提交），服务启动时解析并注入 `config` 对象。
+
+```
+.env (根目录)
+  ├── OPENWEATHER_API_KEY  → config.weather.api_key
+  ├── FISH_API_KEY         → config.tts.api_key
+  ├── CLAUDE_API_KEY       → config.claude.api_key
+  ├── CLAUDE_BASE_URL      → config.claude.base_url
+  ├── NCM_COOKIE           → config.ncm.cookie
+  └── HTTP_PROXY           → config.proxy.url
+```
+
+**.env 解析器 last-wins 语义**（重要修复）：
+```js
+// 错误做法（first-wins）：重复 key 时，先出现的占位符覆盖后出现的真实值
+if (!process.env[key]) process.env[key] = value;
+
+// 正确做法（last-wins）：后面的值覆盖前面
+process.env[key] = value;
+```
+
+### 2. 网易云音乐全链路集成
+
+**NeteaseCloudMusicApi 部署**：
+- 通过 `npx -y NeteaseCloudMusicApi --port 3000` 本地运行
+- 原 GitHub 仓库（Binaryify/NeteaseCloudMusicApi）已重构只剩 README，npm 包不受影响
+
+**QR 码登录流程**（`server/scripts/ncm-login.js`）：
+```
+/login/qr/key  → 获取 unikey
+/login/qr/create?key=&qrimg=true  → 生成 QR 码
+/login/qr/check?key=  → 轮询扫码状态 (803=登录成功)
+```
+- 使用 `qrcode-terminal` 在终端渲染 ASCII QR 码
+- 登录成功后将 `MUSIC_U` cookie 写入 `.env`
+
+**用户数据注入 DJ context**（`server/core/context.js`）：
+```
+NCM 认证接口:
+  /user/account        → 用户昵称、uid
+  /user/playlist?uid=  → 歌单列表（20个）
+  /likelist?uid=       → 收藏歌曲（617首）
+  /record/recent/song  → 最近播放
+
+组装为 context 片段:
+  "## 用户的网易云音乐数据"
+  "最近在听: Khruangbin - Friday Morning (3次)"
+  "主要歌单: 我的最爱 (120首)"
+  "收藏了 617 首喜欢的歌"
+```
+- 30 分钟内存缓存，避免每次请求都拉取
+
+### 3. Claude 调用方案迁移：CLI 子进程 → HTTP 直连 API
+
+**原方案（claude.js）的问题**：
+- 每次调用 spawn 新进程，冷启动 ~3s
+- Windows 需要 `shell: true` + `CLAUDE_CODE_GIT_BASH_PATH` 环境变量
+- 长 prompt 通过命令行传参有 shell 转义风险（中文标点、换行符）
+- 通过 stdin 传 prompt 绕过了转义问题，但冷启动仍在
+
+**新方案（claude-api.js）**：HTTP 直连中转平台 API
+```js
+// OpenAI 兼容格式
+POST https://cloud.hongqiye.com/v1/chat/completions
+{
+  model: "claude-sonnet-4-6",
+  messages: [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userMessage }
+  ],
+  max_tokens: 2000,
+  temperature: 0.8
+}
+```
+
+**关键编码修复**：Node.js 24 的 `fetch` 对 body 中的 UTF-8 中文处理有 bug（ByteString 错误）。
+```js
+// 错误：含中文的 body 直接传 string 会抛 ByteString 异常
+body: JSON.stringify(body)
+
+// 正确：使用 TextEncoder 转为 Uint8Array
+body: new TextEncoder().encode(JSON.stringify(body))
+```
+
+### 4. HTTP 代理策略优化
+
+**原则**：国内可直连的服务不走代理，被墙的才用 `proxyFetch()`。
+
+| 服务 | 策略 | 原因 |
+|---|---|---|
+| OpenWeather | 直连 `fetch()` | 国内可访问，代理反而慢且不稳定 |
+| Claude API (hongqiye) | 直连 `fetch()` | 中转平台国内可直接访问 |
+| NCM (localhost) | 直连 `fetch()` | 本地服务 |
+| Fish Audio TTS | 需代理 `proxyFetch()` | api.fish.audio 被墙 |
+
+**架构变化**：
+- 删除全局 `setGlobalDispatcher(new ProxyAgent(...))`（会影响所有请求，包括 localhost）
+- `http.js` 改为按需导出 `proxyFetch()`，每个模块自行决定是否走代理
+- 天气模块移除 `proxyFetch` 依赖，改用原生 `fetch()` + `AbortController` 超时控制
+
+### 5. 前端 Bug 修复
+
+**CSS 主题变量不生效**：
+```css
+/* 错误：.theme-dark 从未被设置到任何 DOM 元素上 */
+.theme-dark { --bg: #0d0d0d; }
+.theme-light { --bg: #f0f0f7; }
+
+/* 正确：直接挂 body，通过 body.light 切换 */
+body { --bg: #0d0d0d; }
+body.light { --bg: #f0f0f7; }
+```
+
+**聊天消息不可见**：
+- `addChat()` 缺少 `.chat-msg` 包裹层，导致 CSS 的 flex 布局（头像+气泡横排）、spring 动画、max-width 全部失效
+- 修复：创建完整结构 `.chat-msg > .chat-avatar + .chat-bubble`
+
+### 6. 速度优化结果
+
+| 指标 | 优化前 | 优化后 | 改善 |
+|---|---|---|---|
+| 总 POST /api/chat 延迟 | ~25s | **~7.8s** | **3.2x** |
+| Claude 调用 | CLI spawn ~3s 冷启动 | HTTP API ~2-3s | 消除冷启动 |
+| 天气 API | 代理超时 ~10s | 直连 ~3.7s | 2.7x |
+| 降级率 | 频繁 | 0%（本次测试） | — |
+
+### 7. 今日踩坑记录
+
+| 问题 | 根因 | 修复 |
+|---|---|---|
+| Claude API 始终降级 | `.env` 有两条 `CLAUDE_API_KEY`，第一条是中文占位符 → 被用作 API Key → Authorization header 含中文 → ByteString 崩溃 | 删除占位符 + 解析器改为 last-wins + TextEncoder 编码 |
+| 天气"超时" | OpenWeather 不接受中文城市名 "深圳" | 改为 "Shenzhen" |
+| 天气走代理超时 ~10s | 代理不稳定 | 改为直连 + 8s AbortController 超时 |
+| NCM 歌单返回 0 条 | `/user/playlist` 需要传 `uid` 参数 | 从 `getUserInfo()` 获取 uid 后传入 |
+| 前端无法交互 | CSS 选择器 `.theme-dark` 从未被 JS 设置 | 改用 `body` / `body.light` |
+| TTS 402 | Fish Audio 账户余额不足（非代码问题） | 待用户充值 |
+| `config.json` model 名无效 | `"sonnet"` 是 CLI 简写，API 需要 `"claude-sonnet-4-6"` | 改为完整名称 |
+
+### 8. 当前运行时状态
+
+**启动依赖**（两个进程）：
+```
+npx -y NeteaseCloudMusicApi --port 3000   ← 必须先启动
+node server/index.js                       ← 主服务 :8080
+```
+
+**验证通过**：
+- POST /api/chat 端到端闭环（天气 + NCM 数据 → Claude → 结构化 DJ 回复）
+- DJ 能准确引用：天气（"闷热的阴天"=深圳 31°C 多云）+ 听歌历史（Khruangbin、Tycho、Cocteau Twins）
+- 降级兜底词生效（"抱歉，我现在有点短路了"）
+
+**已知待修**：
+- Fish Audio TTS：需代理 + 账户余额
+- user/ 语料文件（taste.md 等）仍为模板内容，DJ 目前靠 NCM 数据个性化
+- 前端细节：点阵时钟、天气角标、导航按钮功能未完成

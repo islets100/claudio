@@ -28,7 +28,7 @@ function formatCalendar(events) {
  * 按 6 片粘成 Claude 的完整 system prompt
  *
  *  ① 系统提示词    — prompts/dj-persona.md
- *  ② 用户语料      — user/*.md
+ *  ② 用户语料      — user/*.md + 网易云用户数据
  *  ③ 环境注入      — weather + calendar + now
  *  ④ 已检索记忆    — state.db messages + plays
  *  ⑤ 用户输入      — 当前消息
@@ -42,6 +42,7 @@ function assemble(opts = {}) {
     recentMessages = [],
     recentPlays = [],
     schedulerState = null,
+    ncmProfile = null,
   } = opts;
 
   // ①
@@ -55,6 +56,24 @@ function assemble(opts = {}) {
   const userCorpus = [taste, routines, moodRules]
     .filter(Boolean)
     .join("\n\n---\n\n");
+
+  // 网易云用户数据（真实听歌行为）
+  let ncmBlock = "";
+  if (ncmProfile) {
+    ncmBlock = "## 用户的网易云音乐数据\n";
+    if (ncmProfile.nickname) {
+      ncmBlock += `网易云昵称: ${ncmProfile.nickname}\n`;
+    }
+    if (ncmProfile.recentHistory && ncmProfile.recentHistory.length > 0) {
+      ncmBlock += `\n最近在听:\n${ncmProfile.recentHistory.map(h => `- ${h.name} - ${h.artist} (${h.playCount}次)`).join("\n")}\n`;
+    }
+    if (ncmProfile.topPlaylists && ncmProfile.topPlaylists.length > 0) {
+      ncmBlock += `\n主要歌单:\n${ncmProfile.topPlaylists.map(p => `- ${p.name} (${p.trackCount}首)`).join("\n")}\n`;
+    }
+    if (ncmProfile.likedCount) {
+      ncmBlock += `\n收藏了 ${ncmProfile.likedCount} 首喜欢的歌\n`;
+    }
+  }
 
   // ③
   const now = new Date();
@@ -95,6 +114,7 @@ function assemble(opts = {}) {
     "---",
     "## 用户品味档案",
     userCorpus,
+    ncmBlock,
     "---",
     "## 当前环境",
     envBlock,

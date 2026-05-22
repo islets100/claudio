@@ -1,6 +1,6 @@
 async function getWeather(config) {
   const apiKey = config.weather?.api_key;
-  if (!apiKey || apiKey.startsWith("你的")) {
+  if (!apiKey || apiKey === "你的 OpenWeather API Key") {
     console.warn("OpenWeather API Key not configured, skipping weather");
     return null;
   }
@@ -16,7 +16,10 @@ async function getWeather(config) {
   }
 
   try {
-    const res = await fetch(url);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);  // 8s 超时
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
     if (!res.ok) {
       console.error("OpenWeather request failed:", res.status);
       return null;

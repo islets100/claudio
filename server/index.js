@@ -2,6 +2,22 @@ const express = require("express");
 const path = require("path");
 const fs = require("fs");
 
+// 加载根目录 .env 文件（优先级高于 config.json）
+const envPath = path.join(__dirname, "..", ".env");
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, "utf-8");
+  for (const line of envContent.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eqIdx = trimmed.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const value = trimmed.slice(eqIdx + 1).trim();
+    process.env[key] = value;  // 后出现的值覆盖前面的
+  }
+  console.log("📋 .env 已加载");
+}
+
 // 加载配置
 const configPath = path.join(__dirname, "config.json");
 if (!fs.existsSync(configPath)) {
@@ -10,6 +26,19 @@ if (!fs.existsSync(configPath)) {
 }
 const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 
+// .env 值自动覆盖 config.json（约定：.env 中的 Key 映射到 config 字段）
+if (process.env.OPENWEATHER_API_KEY) config.weather.api_key = process.env.OPENWEATHER_API_KEY;
+if (process.env.FISH_API_KEY) config.tts.api_key = process.env.FISH_API_KEY;
+if (process.env.NETEASE_API_URL) config.ncm.base_url = process.env.NETEASE_API_URL;
+if (process.env.NETEASE_API_KEY && !process.env.NETEASE_API_URL) config.ncm.base_url = process.env.NETEASE_API_KEY;
+if (process.env.HTTP_PROXY) config.proxy = config.proxy || { url: process.env.HTTP_PROXY };
+if (process.env.NCM_COOKIE) config.ncm.cookie = process.env.NCM_COOKIE;
+if (process.env.CLAUDE_API_KEY) config.claude.api_key = process.env.CLAUDE_API_KEY;
+if (process.env.CLAUDE_BASE_URL) config.claude.base_url = process.env.CLAUDE_BASE_URL;
+
+// 用 async IIFE 包裹启动流程
+(async () => {
+
 // 初始化持久化
 const state = require("./state/state");
 state.init();
@@ -17,7 +46,7 @@ console.log("🗄️  state.db 已就绪");
 
 // 核心模块
 const context = require("./core/context");
-const claude = require("./core/claude");
+const claude = require("./core/claude-api");
 const weather = require("./integrations/weather");
 const calendar = require("./integrations/calendar");
 const { NCMClient } = require("./integrations/ncm");
@@ -25,7 +54,8 @@ const tts = require("./integrations/tts");
 const ws = require("./network/ws");
 
 // 初始化 NCM 客户端
-const ncm = new NCMClient(config.ncm?.base_url || "http://localhost:3000");
+const ncm = new NCMClient(config.ncm?.base_url || "http://localhost:3000", config.ncm?.cookie || "");
+let ncmProfileCache = null;   // 网易云用户数据缓存（30分钟刷新）
 
 // Express 实例
 const app = express();
@@ -84,6 +114,33 @@ app.post("/api/chat", async (req, res) => {
       calendar.getTodayEvents(config).catch(() => []),
     ]);
 
+    // 获取网易云用户数据（带简单的内存缓存，30 分钟刷新一次）
+    let ncmProfile = null;
+    if (config.ncm?.cookie) {
+      const now = Date.now();
+      if (!ncmProfileCache || now - ncmProfileCache._ts > 30 * 60 * 1000) {
+        try {
+          const info = await ncm.getUserInfo();
+          const uid = info?.id;
+          const [playlists, history, likedSongs] = await Promise.all([
+            ncm.getUserPlaylists(uid).catch(() => []),
+            ncm.getHistory(30).catch(() => []),
+            ncm.getLikedSongs(uid).catch(() => []),
+          ]);
+          ncmProfileCache = {
+            nickname: info?.nickname || "",
+            recentHistory: history.slice(0, 15),
+            topPlaylists: playlists.slice(0, 10),
+            likedCount: likedSongs.length,
+            _ts: now,
+          };
+        } catch (e) {
+          console.warn("获取网易云用户数据失败:", e.message);
+        }
+      }
+      ncmProfile = ncmProfileCache;
+    }
+
     // 组装 context
     const { systemPrompt } = context.assemble({
       userMessage,
@@ -91,6 +148,7 @@ app.post("/api/chat", async (req, res) => {
       calendarEvents,
       recentMessages: state.getMessages(20),
       recentPlays: state.getRecentPlays(20),
+      ncmProfile,
     });
 
     // 调用 Claude
@@ -212,3 +270,4 @@ scheduler.init({ config, state, context, claude, weather, calendar, ws });
 
 // 导出供 ws.js 共用 HTTP server
 module.exports = { app, server, config, state };
+})();

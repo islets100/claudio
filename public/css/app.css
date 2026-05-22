@@ -1,7 +1,7 @@
 /* Claudio PWA — 完整样式表 | 点阵复古未来主义 */
 
 /* === 主题变量 === */
-.theme-dark {
+body {
   --bg-deep: #0d0d0d; --bg-panel: #0f0f13; --dot-color: #1a1a1a;
   --card-bg: #ffffff; --text-primary: #fff; --text-dim: #888;
   --text-card: #111; --text-card-dim: #666; --accent-green: #00ff88;
@@ -10,7 +10,7 @@
   --chat-bg: rgba(255,255,255,0.06); --chat-border: rgba(255,255,255,0.1);
   --nav-bg: rgba(0,0,0,0.8); --shell-border: #161616;
 }
-.theme-light {
+body.light {
   --bg-deep: #f0f0f7; --bg-panel: #f0f0f7; --dot-color: #d8d8e8;
   --card-bg: #ffffff; --text-primary: #1a1a2e; --text-dim: #999;
   --text-card: #111; --text-card-dim: #888; --accent-green: #00cc66;

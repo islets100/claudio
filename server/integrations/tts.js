@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { proxyFetch } = require("../core/http");
 
 const CACHE_DIR = path.join(__dirname, "..", "..", "cache", "tts");
 
@@ -16,7 +17,7 @@ function hashText(text, voiceId = "default") {
 
 async function synthesize(text, config) {
   const apiKey = config.tts?.api_key;
-  if (!apiKey || apiKey.startsWith("你的")) {
+  if (!apiKey || apiKey === "你的 Fish Audio API Key") {
     console.warn("Fish Audio API Key not configured, skipping TTS");
     return null;
   }
@@ -34,14 +35,14 @@ async function synthesize(text, config) {
   }
 
   try {
-    const res = await fetch(`${baseUrl}/v1/tts`, {
+    const res = await proxyFetch(`${baseUrl}/v1/tts`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ text, voice_id: voiceId, format: "mp3" }),
-    });
+    }, config);
 
     if (!res.ok) {
       console.error("Fish Audio request failed:", res.status);

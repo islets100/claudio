@@ -53,63 +53,73 @@ Claudio 会**看着窗外的天气 🏙️、翻翻你的日历 📅、想想你
 
 ## ⚡ 五分钟把它叫醒
 
-### 1️⃣ 抱回家
-
-```bash
-git clone <your-repo-url> && cd claudio
-```
-
-### 2️⃣ 装上零件
+### 1️⃣ 装零件
 
 ```bash
 cd server && npm install
 ```
 
-### 3️⃣ 告诉它关于你的事
+### 2️⃣ 告诉它你的秘密
+
+在项目根目录创建 `.env` 文件：
 
 ```bash
-cp config.example.json config.json
+# 天气（OpenWeather 免费注册即可）
+OPENWEATHER_API_KEY=你的_OpenWeather_Key
+
+# Claude 大模型（中转平台，兼容 OpenAI 格式）
+CLAUDE_API_KEY=sk-你的中转平台Key
+CLAUDE_BASE_URL=https://你的中转平台地址
+
+# Fish Audio TTS（可选，目前需代理 + 账户余额）
+FISH_API_KEY=你的_Fish_Audio_Key
+
+# HTTP 代理（可选，被墙服务用）
+HTTP_PROXY=http://127.0.0.1:7897
 ```
 
-打开 `config.json`，填上你的小秘密：
+`server/config.json` 里改一下基本信息：
 
 ```json
 {
-  "user": { "name": "你的昵称 🌝", "city": "上海" },
-  "weather": { "api_key": "OpenWeather 的钥匙" },
-  "tts": { "api_key": "Fish Audio 的钥匙" },
-  "ncm": { "base_url": "http://localhost:3000" }
+  "user": { "name": "你的昵称", "city": "Shenzhen" },
+  "claude": { "model": "claude-sonnet-4-6" }
 }
 ```
 
-### 4️⃣ 把音乐引擎点起来
-
-Claudio 靠网易云活着，先给它喂数据：
+### 3️⃣ 登录网易云（获取 cookie）
 
 ```bash
-git clone https://github.com/Binaryify/NeteaseCloudMusicApi
-cd NeteaseCloudMusicApi && npm install && node app.js
+cd server && node scripts/ncm-login.js
 ```
 
-### 5️⃣ 教它你的品味
+终端会出现一个 ASCII 二维码，用网易云 APP 扫码。登录成功后 cookie 自动写入 `.env`。
 
-编辑 `user/` 里的几个文件——越具体它越懂你：
-
-| 📝 文件 | 🤔 写什么 |
-|---|---|
-| `taste.md` | 爱谁、恨谁、雨天想听什么、工作时不能听什么 |
-| `routines.md` | 几点起、几点肝、几点瘫 |
-| `mood-rules.md` | 「如果...就给我放...」的情绪小公式 |
-
-### 6️⃣ 喊醒它
+### 4️⃣ 启动网易云 API 引擎
 
 ```bash
-cd server && npm start
+npx -y NeteaseCloudMusicApi --port 3000
 ```
 
-打开 `http://localhost:8080` 🎉
+保持窗口开着，这是 Claudio 的曲库。
 
-对着聊天框说「早上好」——你的 AI DJ 该上岗了。
+### 5️⃣ 喊醒 Claudio
+
+再开一个终端：
+
+```bash
+cd server && node index.js
+```
+
+打开 `http://localhost:8080`，对着聊天框说话 🎉
+
+### 🧹 关掉
+
+```bash
+taskkill //F //IM node.exe
+```
+
+> **已知限制**：Fish Audio TTS 需要 HTTP 代理 + 账户余额，当前语音合成不可用。核心 DJ 功能不受影响。
 
 ---
 
@@ -131,14 +141,16 @@ cd server && npm start
 ## 🧭 走到哪了
 
 - [x] 🏗️ 工程骨架 + 配置系统 + SQLite 记忆库
-- [x] 🧠 Claude Code 子进程召唤术 + 6 片 Context 炼金
-- [x] 🌤️🎵🗣️📅 四大外部 API 全接通
+- [x] 🧠 Claude HTTP API 直连 + 6 片 Context 炼金（含网易云真实数据）
+- [x] 🌤️🎵 天气 + 网易云全链路集成（QR 登录 / cookie / 用户数据）
 - [x] 🌐 9 条 HTTP 端点 + WebSocket 实时心跳
-- [x] 📱 PWA 三视图 + 全视觉规范落地 + Service Worker
-- [ ] 🔑 等你的 API Key 灌进去，端到端跑通
+- [x] 📱 PWA 三视图 + 视觉规范落地 + Service Worker
+- [x] ⚡ 速度优化（25s → 7.8s，CLI 子进程改为 HTTP 直连）
+- [ ] 🗣️ Fish Audio TTS（需代理 + 账户余额）
+- [ ] 📝 用户品味语料填充（taste / routines / mood-rules）
 - [ ] 🎙️ DJ 播报词灵魂调优
-- [ ] 📻 UPnP 推到客厅音响：「Naim 宝宝，该你出场了」
-- [ ] ✨ PWA 细节像素级打磨
+- [ ] 📻 UPnP 推到客厅音响
+- [ ] ✨ PWA 细节像素级打磨（点阵时钟 / 天气角标）
 
 ---
 
@@ -186,4 +198,4 @@ Claudio 是我的「反效率」实验。
 
 ## 📜 License
 
-MIT —— 拿去吧，改成你喜欢的样子 🎸
+MIT —— 拿去改成你喜欢的样子 🎸
