@@ -1,29 +1,24 @@
 /**
  * Claude API 直连适配器
  *
- * 通过 HTTP 直接调用 Claude API（兼容 OpenAI 格式），
- * 替代 spawn(claude CLI) 方案，消除进程冷启动延迟。
- *
- * 配置来源 config.claude:
- *   - api_key:    API 密钥（.env 中的 CLAUDE_API_KEY）
- *   - base_url:   API 端点（.env 中的 CLAUDE_BASE_URL）
- *   - model:      模型名称，默认 claude-sonnet-4-6
- *   - timeout_ms: 超时时间，默认 30000
- *   - max_tokens: 最大输出 token，默认 2000
+ * 通过 HTTP 直接调用 Claude API（兼容 OpenAI 格式）。
+ * 支持流式 (SSE) 和非流式两种模式。
  */
 
 /**
- * @param {string} systemPrompt  — 完整系统提示词
- * @param {string} userMessage   — 用户当前消息
- * @param {object} config        — config.json 的 claude 配置段
- * @returns {Promise<{say:string, play:Array, reason:string, segue:string}>}
+ * 流式调用 Claude，逐 chunk 回调
+ * @param {string} systemPrompt
+ * @param {string} userMessage
+ * @param {object} config
+ * @param {function} onChunk  — 每收到一段文字时回调 (deltaText)
+ * @param {function} onDone   — 流结束后回调 (parsedResult)
  */
-async function callClaude(systemPrompt, userMessage, config = {}) {
+async function callClaudeStream(systemPrompt, userMessage, config = {}, onChunk, onDone) {
   const apiKey = config.api_key || process.env.CLAUDE_API_KEY;
   const baseUrl = config.base_url || process.env.CLAUDE_BASE_URL || "https://api.anthropic.com";
   const model = config.model || "claude-sonnet-4-6";
   const maxTokens = config.max_tokens || 2000;
-  const timeoutMs = config.timeout_ms || 30000;
+  const timeoutMs = config.timeout_ms || 60000;
 
   if (!apiKey || apiKey.startsWith("sk-你的")) {
     throw new Error("Claude API Key 未配置");
@@ -37,6 +32,7 @@ async function callClaude(systemPrompt, userMessage, config = {}) {
     ],
     max_tokens: maxTokens,
     temperature: 0.8,
+    stream: true,
   };
 
   const res = await fetch(`${baseUrl}/v1/chat/completions`, {
@@ -54,30 +50,110 @@ async function callClaude(systemPrompt, userMessage, config = {}) {
     throw new Error(`Claude API 返回 ${res.status}: ${text.slice(0, 200)}`);
   }
 
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content || "";
+  // 读取流式响应体
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let fullContent = "";
+  let buffer = "";
 
-  // 解析 JSON 输出
+  // 简易状态机：只提取 "say" 字段的值做流式输出
+  let sayBuf = "";       // 累积的 say 值
+  let sayState = 0;      // 0=寻找"say", 1=找到say key等冒号, 2=等引号, 3=在say值内
+  let sayKeyPos = 0;
+  const SAY_KEY = '"say"';
+  let prevCh = "";       // 用于检测转义
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith("data:")) continue;
+        const dataStr = trimmed.slice(5).trim();
+        if (dataStr === "[DONE]") continue;
+
+        try {
+          const chunk = JSON.parse(dataStr);
+          const delta = chunk.choices?.[0]?.delta?.content;
+          if (!delta) continue;
+          fullContent += delta;
+
+          // 用状态机从 delta 中提取 say 值
+          for (let i = 0; i < delta.length; i++) {
+            const ch = delta[i];
+            if (sayState === 0) {
+              // 寻找 "say" 关键字
+              if (ch === SAY_KEY[sayKeyPos]) {
+                sayKeyPos++;
+                if (sayKeyPos === SAY_KEY.length) sayState = 1; // 找到了 "say"
+              } else {
+                sayKeyPos = 0;
+              }
+            } else if (sayState === 1) {
+              // 跳过冒号前的空白
+              if (ch === ":") sayState = 2;
+            } else if (sayState === 2) {
+              // 跳过冒号后的空白，找开引号
+              if (ch === '"') { sayState = 3; prevCh = ""; continue; }
+            } else if (sayState === 3) {
+              // 在 say 值内部
+              if (ch === '"' && prevCh !== '\\') {
+                sayState = 4; // 未转义的引号 = say 值结束
+              } else {
+                sayBuf += ch;
+                onChunk(ch);
+              }
+            }
+            prevCh = ch;
+          }
+        } catch { /* 跳过无法解析的行 */ }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  // 解析完整 JSON 结果
   let parsed;
   try {
-    parsed = JSON.parse(content);
+    parsed = JSON.parse(fullContent);
   } catch {
-    // 尝试提取 JSON 块
-    const match = content.match(/\{[\s\S]*\}/);
+    const match = fullContent.match(/\{[\s\S]*\}/);
     if (match) {
       try { parsed = JSON.parse(match[0]); } catch { /* fall through */ }
     }
     if (!parsed) {
-      throw new Error(`Claude API 返回非 JSON: ${content.slice(0, 300)}`);
+      parsed = { say: fullContent, play: [], reason: "", segue: "" };
     }
   }
 
-  return {
+  const result = {
     say: parsed.say || "",
     play: parsed.play || [],
     reason: parsed.reason || "",
     segue: parsed.segue || "",
   };
+  onDone(result);
 }
 
-module.exports = { callClaude };
+/**
+ * 非流式调用（向后兼容）
+ */
+async function callClaude(systemPrompt, userMessage, config = {}) {
+  return new Promise((resolve, reject) => {
+    let fullText = "";
+    callClaudeStream(
+      systemPrompt, userMessage, config,
+      () => {}, // 忽略 chunk
+      (result) => resolve(result)
+    ).catch(reject);
+  });
+}
+
+module.exports = { callClaude, callClaudeStream };

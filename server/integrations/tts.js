@@ -11,8 +11,8 @@ function ensureCacheDir() {
   }
 }
 
-function hashText(text, voiceId = "default") {
-  return crypto.createHash("md5").update(text + voiceId).digest("hex");
+function hashText(text, voiceId = "default", speed = 1) {
+  return crypto.createHash("md5").update(text + voiceId + speed).digest("hex");
 }
 
 async function synthesize(text, config) {
@@ -24,10 +24,11 @@ async function synthesize(text, config) {
 
   const baseUrl = config.tts?.base_url || "https://api.fish.audio";
   const voiceId = config.tts?.voice_id || "default";
+  const speed = config.tts?.speed || 1;
 
   ensureCacheDir();
 
-  const hash = hashText(text, voiceId);
+  const hash = hashText(text, voiceId, speed);
   const cachePath = path.join(CACHE_DIR, `${hash}.mp3`);
 
   if (fs.existsSync(cachePath)) {
@@ -41,7 +42,7 @@ async function synthesize(text, config) {
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ text, voice_id: voiceId, format: "mp3" }),
+      body: JSON.stringify({ text, voice_id: voiceId, format: "mp3", speed }),
     }, config);
 
     if (!res.ok) {

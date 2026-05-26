@@ -36,7 +36,7 @@ class NCMClient {
   }
 
   async getSongUrl(songId) {
-    const data = await this._get("/song/url/v1", { id: songId, level: "standard" });
+    const data = await this._get("/song/url/v1", this._authParams({ id: songId, level: "exhigh" }));
     if (data.code !== 200 || !data.data?.[0]) return null;
     return { url: data.data[0].url, br: data.data[0].br };
   }

@@ -470,3 +470,150 @@ node server/index.js                       ← 主服务 :8080
 - Fish Audio TTS：需代理 + 账户余额
 - user/ 语料文件（taste.md 等）仍为模板内容，DJ 目前靠 NCM 数据个性化
 - 前端细节：点阵时钟、天气角标、导航按钮功能未完成
+
+---
+
+## 2026-05-26 — 交互打磨 & TTS 全面修复
+
+### 1. SSE 流式聊天
+
+**问题**：`POST /api/chat` 之前是非流式——等 Claude 完整回复后才一次性返回，用户要干等 5-8 秒。
+
+**方案**：index.js 改为 SSE (Server-Sent Events) 响应，claude-api.js 新增 `callClaudeStream()`：
+- `res.writeHead(200, { "Content-Type": "text/event-stream" })`
+- 每个 delta chunk 立即 `res.write("data: {c: delta}\n\n")`
+- 前端 `fetch` → `reader.getReader()` 逐行解析 `data:` 行
+- 流结束后发送 `{done: true, say, play, reason, segue}` 完整结果
+
+**流式提取 say 字段**：claude-api.js 内置一个简易状态机，在 SSE chunk 流中实时提取 JSON 的 `"say"` 字段值。不是等完整 JSON 解析——而是在字符串级别逐字符扫描 `"say": "..."` 模式，即时回调 `onChunk(ch)`。完整 JSON 解析在流结束后进行。
+
+### 2. 进度条拖动
+
+**问题**：进度条只能点击跳转，不能拖动。
+
+**方案**：Pointer Events 全拖拽支持：
+```
+pointerdown → e.preventDefault() + setPointerCapture(e.pointerId) + dragging = true
+pointermove  → 实时更新 audioEl.currentTime + progress + waveThumb 位置
+pointerup/cancel/leave → dragging = false
+```
+- 添加 `.wave-thumb` 圆形拖拽手柄（12px 白色边框圆点，`box-shadow` 立体感）
+- `renderWf()` 每帧同步 thumb 位置：`waveThumb.style.left = (progress * 100) + "%"`
+
+### 3. 播报词持久化
+
+**问题**：刷新页面后播放队列里的 reason 全部变成 "最近听过" 的默认值。
+
+**根因**：`loadHistory()` 未解析 `plays` 表的 `context` JSON 字段。
+
+**修复**：
+```js
+var ctx = {};
+try { ctx = typeof p.context === "string" ? JSON.parse(p.context) : (p.context || {}); } catch (_) {}
+playQueue.push({ song: ..., reason: ctx.reason || "" });
+```
+
+### 4. BGM intro loop — 播报期间音乐策略
+
+**设计目标**：DJ 播报时不应播放完整歌曲。只取前 25s 间奏作为低音量背景音乐循环。
+
+**实现**：
+- `playTrack()` 检测 `narrationExpected || narrationActive` → 设置 `audioEl.volume = 0.2`
+- `timeupdate` 事件中：播报期间 `currentTime > 25` → `audioEl.currentTime = 0`
+- 播报结束后 `tryFinishNarration()` → `audioEl.currentTime = 0; audioEl.volume = 1.0`
+
+### 5. 播报-歌曲协调状态机
+
+**问题**：TTS 播放和 karaoke 逐字动画是异步的，歌曲恢复需要等两者都完成。
+
+**状态变量**：
+- `narrationExpected` — 已排队歌曲，等待 TTS 到达（setQueue 设为 true）
+- `narrationActive` — TTS 音频正在播放（ttsAudio.play 事件）
+- `karaokeAnimDone` — 逐字高亮动画完成
+
+**协调逻辑** `tryFinishNarration()`：
+```
+if (karaokeAnimDone && !narrationActive && !narrationExpected) {
+  恢复歌曲 → currentTime = 0, volume = 1.0
+}
+```
+- karaoke 完成时调用 → 若 TTS 还在播，不恢复
+- TTS 结束时调用 → 若 karaoke 还在播，不恢复
+- 都完成时才恢复歌曲
+
+**超时兜底**：setQueue 设 15s 计时器，若 TTS 超时未到，清除 `narrationExpected` 并尝试恢复。
+
+### 6. 底部标签栏重设计
+
+**问题**：emoji 图标不精致，无切换动效，且随内容滚动不可见。
+
+**修复**：
+- HTML：SVG 图标（Feather Icons 风格）替代 emoji，添加 `.tab-indicator` 滑动 pill
+- CSS：`cubic-bezier(0.22, 1, 0.36, 1)` 缓动，半透明背景 + 边框
+- JS：`moveTabIndicator(btn)` 计算按钮中心位置，更新 indicator transform
+- 布局：phone-shell 改用 `height: 100dvh`（动态 viewport），tab-bar 添加 `flex-shrink: 0`
+
+### 7. TTS 代理修复（关键修复）
+
+**问题**：Fish Audio TTS 在 Node.js 服务端始终 `fetch failed`，但 `curl -x http://127.0.0.1:7897` 测试成功。
+
+**排查过程**：
+1. `curl` 通过代理访问 `api.fish.audio/v1/tts` → 200 OK, 143KB MP3 ✓
+2. Node.js `proxyFetch` 使用 `undici.ProxyAgent` → `InvalidArgumentError: invalid onRequestStart method` ✗
+3. 尝试 `HttpsProxyAgent` + `fetch` → 不走代理，直连超时 ✗
+4. 最终方案：`HttpsProxyAgent` + Node.js 原生 `https.request()` → 200 OK ✓
+
+**根因**：npm 安装的 `undici` 版本与 Node.js 22 内建 undici 版本不兼容——`ProxyAgent.dispatch()` 传给内置 `Request` 构造函数的 handler 签名不匹配。
+
+**最终代码**（`server/core/http.js`）：
+```js
+const { HttpsProxyAgent } = require("https-proxy-agent");
+// 使用原生 https.request 替代 fetch，绕过 undici 版本冲突
+const req = https.request({ hostname, path, headers, agent }, (res) => {
+  // 收集 body → 构建 fetch 兼容 Response 对象 { ok, status, arrayBuffer(), text(), json() }
+});
+```
+
+### 8. TTS 声音自定义
+
+**需求**：支持切换声音（性别/音色）和调整语速。
+
+**实现**：
+- `config.json` 新增 `tts.voice_id`（声音模型 ID）和 `tts.speed`（0.5-2.0）
+- `tts.js` 将 speed 传入 Fish Audio API body
+- 缓存 hash 包含 voiceId + speed：`md5(text + voiceId + speed)`
+- 用户可在 [fish.audio](https://fish.audio/zh-CN/) 试听不同声音，将 URL 中的 ID 填入 `voice_id`
+
+### 9. 今日踩坑
+
+| 问题 | 根因 | 修复 |
+|---|---|---|
+| undici ProxyAgent 报 invalid onRequestStart | npm undici 与 Node.js 内建 undici 版本冲突 | 改用 https-proxy-agent + 原生 https.request |
+| HttpsProxyAgent + fetch 不走代理 | Node.js fetch 不兼容 http.Agent 的 agent 参数 | 改用原生 https.request 替代 fetch |
+| 改完 config.json 声音没变 | config 在服务器启动时一次性加载 | 修改 config 后需重启服务器 |
+| 竞态：karaoke 完成时 TTS 可能尚未到达 | tryFinishNarration 只检查 karaokeAnimDone + !narrationActive | 增加 !narrationExpected 条件 |
+
+### 10. 当前运行时状态
+
+**启动依赖**（两个进程）：
+```
+npx -y NeteaseCloudMusicApi --port 3000   ← 必须先启动
+node server/index.js                       ← 主服务 :8080
+```
+
+**已修复**：
+- Fish Audio TTS 代理连接（https-proxy-agent 方案，已验证 200 OK）
+- TTS 语音/语速可配置
+- SSE 流式聊天
+- 进度条拖动 + 视觉 thumb
+- 播报词持久化
+- BGM intro loop 播报策略
+- 播报-歌曲协调状态机
+- SVG 标签栏 + 滑动动画
+
+**已知待修**：
+- user/ 语料文件仍为模板内容
+- 点阵时钟 Canvas 绘制
+- 天气角标实时更新
+- 蓝牙/音频输出设备选择
+- UPnP 音响推送

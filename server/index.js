@@ -73,6 +73,17 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, time: new Date().toISOString() });
 });
 
+// ---- GET /api/weather ----
+app.get("/api/weather", async (_req, res) => {
+  try {
+    const data = await weather.getWeather(config);
+    res.json({ ok: true, data });
+  } catch (err) {
+    console.error("/api/weather error:", err.message);
+    res.json({ ok: true, data: null });
+  }
+});
+
 // ---- GET /api/search ----
 app.get("/api/search", async (req, res) => {
   try {
@@ -104,9 +115,6 @@ app.get("/api/song/:id", async (req, res) => {
 app.post("/api/chat", async (req, res) => {
   try {
     const userMessage = req.body.message || "";
-
-    // 保存用户消息
-    state.addMessage("user", userMessage);
 
     // 获取环境数据
     const [weatherData, calendarEvents] = await Promise.all([
@@ -151,58 +159,83 @@ app.post("/api/chat", async (req, res) => {
       ncmProfile,
     });
 
-    // 调用 Claude
-    let result;
+    // 流式 SSE 响应
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+
     try {
-      result = await claude.callClaude(
+      let fullSay = "";
+
+      await claude.callClaudeStream(
         systemPrompt,
         userMessage,
-        config.claude
+        config.claude,
+        // onChunk — 逐字推送到前端
+        (delta) => {
+          fullSay += delta;
+          res.write(`data: ${JSON.stringify({ c: delta })}\n\n`);
+        },
+        // onDone — 发送完整结果
+        (result) => {
+          // 保存助手回复
+          state.addMessage("assistant", result.say, { result });
+
+          // 记录播放
+          for (const song of result.play || []) {
+            state.addPlay(
+              song.song_id || "",
+              song.song || "未知",
+              song.artist || "",
+              { reason: song.reason || "" }
+            );
+          }
+
+          // 异步合成 TTS，完成后通过 WebSocket 推送
+          if (result.say) {
+            tts.synthesize(result.say, config).then((url) => {
+              if (url) {
+                result._ttsUrl = url;
+                ws.pushTtsUrl(url);
+              }
+            }).catch(() => {});
+          }
+
+          // WebSocket 推送
+          ws.pushChatReply({
+            say: result.say,
+            reason: result.reason,
+            play: result.play || [],
+            segue: result.segue,
+            tts_url: result._ttsUrl,
+          });
+
+          // 发送最终结果
+          res.write(`data: ${JSON.stringify({ done: true, say: result.say, play: result.play, reason: result.reason, segue: result.segue })}\n\n`);
+          res.end();
+        }
       );
     } catch (err) {
       console.error("Claude 调用失败:", err.message);
-      // 降级：返回兜底播报词
-      result = {
-        say: "抱歉，我现在有点短路了。试试自己手动选首歌？",
-        play: [],
-        reason: "Claude 调用失败，触发降级",
-        segue: "",
-      };
+      // 降级
+      const fallback = { say: "抱歉，我现在有点短路了。试试自己手动选首歌？", play: [], reason: "Claude 调用失败，触发降级", segue: "" };
+      res.write(`data: ${JSON.stringify({ c: fallback.say })}\n\n`);
+      res.write(`data: ${JSON.stringify({ done: true, ...fallback })}\n\n`);
+      res.end();
     }
 
-    // 保存助手回复
-    state.addMessage("assistant", result.say, { result });
-
-    // 如果有播放列表，记录每首歌
-    for (const song of result.play || []) {
-      state.addPlay(
-        song.song_id || "",
-        song.song || "未知",
-        song.artist || "",
-        { reason: song.reason || "" }
-      );
-    }
-
-    // 异步合成 TTS，不阻塞响应
-    if (result.say) {
-      tts.synthesize(result.say, config).then((url) => {
-        if (url) result._ttsUrl = url;
-      }).catch(() => {});
-    }
-
-    // WebSocket 推送
-    ws.pushChatReply({
-      say: result.say,
-      reason: result.reason,
-      play: result.play || [],
-      segue: result.segue,
-      tts_url: result._ttsUrl,
-    });
-
-    res.json({ ok: true, data: result });
+    // 保存用户消息（在流开始后）
+    state.addMessage("user", userMessage);
   } catch (err) {
     console.error("/api/chat 异常:", err);
-    res.status(500).json({ ok: false, error: err.message });
+    if (!res.headersSent) {
+      res.status(500).json({ ok: false, error: err.message });
+    } else {
+      res.end();
+    }
   }
 });
 
@@ -241,6 +274,13 @@ app.get("/api/plan/today", (_req, res) => {
   const today = new Date().toISOString().slice(0, 10);
   const plan = state.getPlan(today);
   res.json({ ok: true, data: plan });
+});
+
+// ---- GET /api/history ----
+app.get("/api/history", (_req, res) => {
+  const messages = state.getMessages(50);
+  const plays = state.getRecentPlays(30);
+  res.json({ ok: true, data: { messages, plays } });
 });
 
 // ---- 启动 ----

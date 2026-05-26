@@ -30,7 +30,9 @@
     "provider": "fish_audio",
     "api_key": "你的 Fish Audio API Key",
     "base_url": "https://api.fish.audio",
-    "voice_id": "default"
+    "voice_id": "default",
+    "speed": 1,
+    "_comment": "voice_id 在 fish.audio 试听获取，speed 范围 0.5-2.0"
   },
 
   "calendar": {

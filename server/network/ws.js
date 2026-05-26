@@ -86,4 +86,8 @@ function pushChatReply(reply) {
   broadcast('chat_reply', { reply }); // { say, reason, tts_url, timestamp_map }
 }
 
-module.exports = { init, broadcast, send, pushNowPlaying, pushStateChange, pushChatReply };
+function pushTtsUrl(url) {
+  broadcast("tts_ready", { url });
+}
+
+module.exports = { init, broadcast, send, pushNowPlaying, pushStateChange, pushChatReply, pushTtsUrl };

@@ -33,18 +33,29 @@ function httpGet(url) {
 }
 
 function saveCookie(cookie) {
+  if (!cookie || cookie.length < 50) {
+    console.error("❌ 获取到的 cookie 无效:", cookie);
+    return;
+  }
   let envContent = "";
   if (fs.existsSync(ENV_PATH)) {
     envContent = fs.readFileSync(ENV_PATH, "utf-8");
   }
 
-  if (/^NCM_COOKIE=/m.test(envContent)) {
-    envContent = envContent.replace(/^NCM_COOKIE=.*$/m, `NCM_COOKIE=${cookie}`);
-  } else {
-    envContent = envContent.trimEnd() + `\nNCM_COOKIE=${cookie}\n`;
+  // 用字符串替换处理超长 cookie 行
+  const lines = envContent.split("\n");
+  let found = false;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith("NCM_COOKIE=")) {
+      lines[i] = "NCM_COOKIE=" + cookie;
+      found = true;
+      break;
+    }
   }
-
-  fs.writeFileSync(ENV_PATH, envContent);
+  if (!found) {
+    lines.push("NCM_COOKIE=" + cookie);
+  }
+  fs.writeFileSync(ENV_PATH, lines.join("\n"));
   console.log(`\n✅ Cookie 已写入 ${ENV_PATH}`);
 }
 
