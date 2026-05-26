@@ -42,6 +42,12 @@ Claudio 会**看着窗外的天气 🏙️、翻翻你的日历 📅、想想你
 
 ![Claudio 播放界面截图](Pageprototype/展示.png)
 
+<p align="center">
+  <img src="Pageprototype/展示.png" width="30%" />
+  <img src="Pageprototype/展示1.png" width="30%" />
+  <img src="Pageprototype/展示4.png" width="30%" />
+</p>
+
 - 🖤 极黑底色 `#0d0d0d`，铺满 25px 的像素点阵噪点
 - 🟢 `#00ff88` 呼吸灯一闪一闪：「ON AIR · DJ MODE」
 - 〰️ 镜像对称波形——75 条采样线上下延伸，左边墨黑右边浅灰，像 Logic Pro 里截出来的音频片段
