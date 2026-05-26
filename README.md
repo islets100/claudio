@@ -40,8 +40,6 @@ Claudio 会**看着窗外的天气 🏙️、翻翻你的日历 📅、想想你
 
 视觉效果——还是需要打磨打磨……没有达到预期，期待前端大手子来帮忙（做梦中）
 
-![Claudio 播放界面截图](Pageprototype/展示.png)
-
 <p align="center">
   <img src="Pageprototype/展示.png" width="30%" />
   <img src="Pageprototype/展示1.png" width="30%" />
